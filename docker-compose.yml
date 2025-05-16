@@ -1,0 +1,51 @@
+version: '3.8'
+services:
+  postgres:
+    image: pgvector/pgvector:latest-pg16
+    container_name: kb_postgres
+    environment:
+      POSTGRES_USER: kb_user
+      POSTGRES_PASSWORD: TODO_replace_with_secure_password
+      POSTGRES_DB: knowledge_base
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kb_user -d knowledge_base"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres -c shared_preload_libraries=vector -c max_connections=100
+
+  api:
+    build: ./src
+    container_name: kb_api
+    working_dir: /app
+    volumes:
+      - ./src:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://kb_user:TODO_replace_with_secure_password@postgres:5432/knowledge_base
+
+  ui:
+    image: python:3.11-slim
+    container_name: kb_ui
+    working_dir: /app
+    volumes:
+      - ./src:/app
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+
+volumes:
+  postgres_data:

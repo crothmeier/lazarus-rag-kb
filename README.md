@@ -1,1 +1,1 @@
-# lazarus-rag-kb
+# README
